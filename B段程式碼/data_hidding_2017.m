@@ -95,8 +95,8 @@ function data_hidding_2017
     end
     
     %輸出藏資完成之直方圖
-    Stage1_test = uint8(Stage1_pixel_shift)-1;
-    imhist(Stage1_test);
+    %Stage1_test = uint8(Stage1_pixel_shift)-1;
+    %imhist(Stage1_test);
     
     %-------------------------------------第二階段-------------------------------------
     %把Stage1的結果轉換成一維陣列
@@ -133,7 +133,7 @@ function data_hidding_2017
                 Overflow_point(x,y)=1;
             end
             if (Stage1_pixel_shift(x,y) == 256) %轉回unit8時會overflow
-                Overflow_point(x,y)=2;
+                Overflow_point(x,y)=256;
             end
             if (Stage1_pixel_shift(x,y)<=Stage2_leftpeakpoint && Stage1_pixel_shift(x,y)~=1)
                 Stage1_pixel_shift(x,y) = Stage1_pixel_shift(x,y)-1;
@@ -143,6 +143,7 @@ function data_hidding_2017
             end
         end
     end
+    
     %輸出直方圖
     %Stage1_test = uint8(Stage1_pixel_shift)-1;
     %imhist(Stage1_test);
@@ -165,50 +166,48 @@ function data_hidding_2017
     add_hide = 1;
     for x=1:512
         for y=1:512
-            if (Stage1_pixel_shift == (Stage2_leftpeakpoint-1))
+            if Stage1_pixel_shift(x,y) == (Stage2_leftpeakpoint-1)      %24
                 %第一階段的peakpoint還沒藏完，繼續藏
-                if (addhide<=length(Ori_peakpoint_char) && addhide<=maxhide)
-                    if Ori_peakpoint_char(addhide)==1
-                        Stage1_pixel_shift(x,y) = Stage1_pixel_shift(x,y) + 1;
+                if (add_hide<=length(Ori_peakpoint_char) && add_hide<=Stage2_maxhide)
+                    if Ori_peakpoint_char(add_hide)==1
+                        Stage1_pixel_shift(x,y) = Stage1_pixel_shift(x,y)+1;
                         add_hide = add_hide + 1;
                     else
                         add_hide = add_hide + 1;
                     end
-                %藏完之後，藏我們所要藏的資料
                 else
-                    if (total_hide<length(bound_hiding_data) && addhide<=maxhide)
+                    if total_hide <= length(bound_hiding_data) && add_hide <= Stage2_maxhide
                         if bound_hiding_data(total_hide)==1
-                            Stage1_pixel_shift(x,y) = Stage1_pixel_shift(x,y) + 1;
+                            Stage1_pixel_shift(x,y) = Stage1_pixel_shift(x,y)+1;
                             add_hide = add_hide + 1;
-                            total_hide = total_hide + 1;
+                            total_hide = total_hide +1;
                         else
+                            total_hide = total_hide +1;
                             add_hide = add_hide + 1;
-                            total_hide = total_hide + 1;
-                        end 
+                        end  
                     end
                 end
             end
             
-            if (Stage1_pixel_shift == (Stage2_rightpeakpoint+1))
+            if Stage1_pixel_shift(x,y) == (Stage2_rightpeakpoint+1)     %26
                 %第一階段的peakpoint還沒藏完，繼續藏
-                if (addhide<=length(Ori_peakpoint_char) && addhide<=maxhide)
-                    if Ori_peakpoint_char(addhide)==1
+                if (add_hide<=length(Ori_peakpoint_char) && add_hide<=Stage2_maxhide)
+                    if Ori_peakpoint_char(add_hide)==1
                         Stage1_pixel_shift(x,y) = Stage1_pixel_shift(x,y) - 1;
-                        add_hide = add_hide + 1;
+                        add_hide = add_hide + 1; 
                     else
                         add_hide = add_hide + 1;
                     end
-                %藏完之後，藏我們所要藏的資料
                 else
-                    if (total_hide<length(bound_hiding_data) && addhide<=maxhide)
+                    if total_hide <= length(bound_hiding_data) && add_hide <= Stage2_maxhide
                         if bound_hiding_data(total_hide)==1
-                            Stage1_pixel_shift(x,y) = Stage1_pixel_shift(x,y) - 1;
+                            Stage1_pixel_shift(x,y) = Stage1_pixel_shift(x,y)-1;
                             add_hide = add_hide + 1;
-                            total_hide = total_hide + 1;
+                            total_hide = total_hide +1;
                         else
+                            total_hide = total_hide +1;
                             add_hide = add_hide + 1;
-                            total_hide = total_hide + 1;
-                        end 
+                        end  
                     end
                 end
             end
@@ -218,6 +217,123 @@ function data_hidding_2017
     %輸出直方圖
     Stage1_test = uint8(Stage1_pixel_shift)-1;
     imhist(Stage1_test);
+    imshow(Stage1_test);
     
+    %-------------------------------------stage2解密程式碼-------------------------------------
+    decode_data = [];
+    decode = 1;
+    %stage2解密程式碼
+    for x=1:512
+        for y=1:512
+            if Stage1_pixel_shift(x,y)==Stage2_leftpeakpoint
+                decode_data(decode)=1;
+                decode = decode + 1;
+            end
+            if Stage1_pixel_shift(x,y)==(Stage2_leftpeakpoint-1)   
+                decode_data(decode)=0;
+                decode = decode + 1;
+            end
+            if Stage1_pixel_shift(x,y)==Stage2_rightpeakpoint
+                decode_data(decode)=1;
+                decode = decode + 1;
+            end
+            if Stage1_pixel_shift(x,y)==(Stage2_rightpeakpoint+1)
+                decode_data(decode)=0;
+                decode = decode + 1;
+            end
+        end
+    end
+    
+    
+    peak_array = decode_data(1:8);
+    peakpoint = int2str(peak_array);               %矩陣轉字串
+    hidedata_peakpoint = bin2dec(peakpoint);      %2進位轉10進位(double型態的peakpoint,若是uint8的要減一)
+    
+    %stage2復原程式碼
+    for x=1:512
+        for y=1:512
+            if Stage1_pixel_shift(x,y)==Stage2_leftpeakpoint
+                Stage1_pixel_shift(x,y)=Stage1_pixel_shift(x,y)-1;
+            end
+            if Stage1_pixel_shift(x,y)==Stage2_rightpeakpoint
+                Stage1_pixel_shift(x,y)=Stage1_pixel_shift(x,y)+1;
+            end
+        end
+    end
+    
+    %將哨兵移回去
+    for x=1:512
+        for y=1:512
+            if Overflow_point(x,y)==1
+                Stage1_pixel_shift(x,y)=1;
+            end
+            if Overflow_point(x,y)==256
+                Stage1_pixel_shift(x,y)=256;
+            end
+            if(Stage1_pixel_shift(x,y) <= Stage2_leftpeakpoint && Overflow_point(x,y)~=1) 
+                Stage1_pixel_shift(x,y) = Stage1_pixel_shift(x,y)+1;
+            end
+            if(Stage1_pixel_shift(x,y) >= Stage2_rightpeakpoint && Overflow_point(x,y)~=256) 
+                Stage1_pixel_shift(x,y) = Stage1_pixel_shift(x,y)-1;
+            end
+        end
+    end
+    %輸出直方圖
+    Stage1_test = uint8(Stage1_pixel_shift)-1;
+    imhist(Stage1_test);
+    
+    %-------------------------------------stage1解密程式碼-------------------------------------
+    Stage1_decoding_data = [];
+    Stage1_decode = 1;
+    %掃描藏密圖片，解密同時復原
+    for x = 1:512
+        for y = 1:512
+            %峰值取出來為0
+            if Stage1_pixel_shift(x,y)== hidedata_peakpoint
+                Stage1_decoding_data(Stage1_decode) = 0;
+                Stage1_decode = Stage1_decode + 1;
+            end
+            %峰值+1取出來為1
+            if Stage1_pixel_shift(x,y)== hidedata_peakpoint + 1
+                Stage1_pixel_shift(x,y)= Stage1_pixel_shift(x,y) - 1;
+                Stage1_decoding_data(Stage1_decode) = 1;
+                Stage1_decode = Stage1_decode + 1;
+            end
+        end
+    end
+    
+    %把直方圖向左移動一個單位回來(peak_point和zero_point之間)
+    for x=1:512
+        for y=1:512
+            if Stage1_pixel_shift(x,y) > hidedata_peakpoint && Stage1_pixel_shift(x,y) < Ori_zeropoint;
+                Stage1_pixel_shift(x,y) = Stage1_pixel_shift(x,y) - 1;
+            end
+        end
+    end
+    
+    %若一開始最低點的pixel，出現次數不是0，則把它復原
+    for x=1:512
+        for y=1:512
+            if Stage1_pixel_shift(x,y) == Ori_zeropoint
+                Stage1_pixel_shift(x,y)= Stage1_renew;
+            end
+        end
+    end
+    
+    %輸出解密後直方圖
+    Stage1_test = uint8(Stage1_pixel_shift)-1;
+    imhist(Stage1_test);
+    imshow(Stage1_test);
+    
+    %合併解密資料
+    totaldecode = [Stage1_decoding_data,decode_data(9:end)];
+    
+    %檢查
+    err = 0;
+    for x=1:(total_hide-1)
+        if totaldecode(x)~=bound_hiding_data(x)
+            err=err+1;
+        end
+    end
 end
     
